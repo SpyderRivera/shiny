@@ -12,6 +12,7 @@ ENV CA_CERTIFICATES_JAVA_VERSION 20140324
 RUN apt-get update && apt-get install -y -t unstable \
     sudo \
     curl \
+    openssl \
     gdebi-core \
     pandoc \
     pandoc-citeproc \
@@ -26,29 +27,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends libfontconfig1 
 
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
 
-# INSTALL Cassandra tools
-RUN echo "deb http://debian.datastax.com/community stable main" | tee -a /etc/apt/sources.list.d/cassandra.sources.list
-RUN curl -L https://debian.datastax.com/debian/repo_key | apt-key add -
-RUN apt-get update && apt-get install -y cassandra-tools
 
-
+COPY shiny-server.sh /usr/bin/shiny-server.sh
+COPY install-packages.R /usr/bin/install-packages.R
 # Download and install shiny server
 RUN wget --no-verbose https://s3.amazonaws.com/rstudio-shiny-server-os-build/ubuntu-12.04/x86_64/VERSION -O "version.txt" && \
     VERSION=$(cat version.txt)  && \
-    wget --no-verbose "https://s3.amazonaws.com/rstudio-shiny-server-os-build/ubuntu-12.04/x86_64/shiny-server-$VERSION-amd64.deb" -O ss-latest.deb && \
-    gdebi -n ss-latest.deb && \
-    rm -f version.txt ss-latest.deb && \
-    R -e "install.packages(c('shiny', 'rmarkdown'), repos='https://cran.rstudio.com/')" && \
-    cp -R /usr/local/lib/R/site-library/shiny/examples/* /srv/shiny-server/
+    echo $VERSION && \
+    wget --no-verbose "https://s3.amazonaws.com/rstudio-shiny-server-os-build/ubuntu-12.04/x86_64/shiny-server-$VERSION-amd64.deb" -O ss-latest.deb;
 
+RUN apt-get update && \
+    gdebi -n ss-latest.deb && \
+    rm -f version.txt ss-latest.deb;
+
+RUN R -f /usr/bin/install-packages.R
 RUN apt-get install -y r-cran-rjava
 
-##NOT CRAN
-##ggTimeSeries \
-
-
 EXPOSE 3838
-
-COPY shiny-server.sh /usr/bin/shiny-server.sh
 
 CMD ["/usr/bin/shiny-server.sh"]
